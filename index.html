@@ -106,6 +106,55 @@
             z-index: 5;
             pointer-events: none;
         }
+        #door-prompt {
+            position: absolute;
+            top: 55%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ffffff;
+            background: rgba(15, 15, 15, 0.9);
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            font-size: 15px;
+            pointer-events: auto;
+            cursor: pointer;
+            z-index: 30;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            text-shadow: 1px 1px 2px black;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        #door-prompt:hover {
+            background: rgba(35, 35, 35, 0.95);
+        }
+        #flashlight-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(15, 15, 15, 0.7);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 25px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            transition: background 0.2s;
+        }
+        #flashlight-btn:hover, #flashlight-btn:active {
+            background: rgba(45, 45, 45, 0.9);
+        }
         #vignette {
             position: absolute;
             top: 0;
@@ -129,6 +178,8 @@
     </div>
 
     <div id="crosshair"></div>
+    <div id="door-prompt"></div>
+    <div id="flashlight-btn">🔦</div>
 
     <div id="mobile-controls">
         <div id="joystick-container">
@@ -152,6 +203,20 @@
 
         const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 100);
         camera.position.set(-2.8, 1.45, 2.6);
+        scene.add(camera);
+
+        const flashlight = new THREE.SpotLight(0xfffff0, 1.2, 35, Math.PI / 14, 0.8, 2.5);
+        flashlight.position.set(0, -0.2, 0);
+        camera.add(flashlight);
+        camera.add(flashlight.target);
+        flashlight.target.position.set(0, -0.2, -1);
+        
+        flashlight.castShadow = true;
+        flashlight.shadow.mapSize.width = 2048;
+        flashlight.shadow.mapSize.height = 2048;
+        flashlight.shadow.camera.near = 0.2;
+        flashlight.shadow.camera.far = 30;
+        flashlight.shadow.bias = -0.0006;
 
         const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -398,12 +463,24 @@
         wallFront.position.set(0, ROOM_HEIGHT / 2, 3.6);
         roomGroup.add(wallFront);
 
-        // Pared Izquierda (X = -5)
-        const wallLeft = new THREE.Mesh(new THREE.PlaneGeometry(7.2, ROOM_HEIGHT), wallMatFB);
-        wallLeft.rotation.y = Math.PI / 2;
-        wallLeft.position.set(-5, ROOM_HEIGHT / 2, 0);
-        wallLeft.receiveShadow = true;
-        roomGroup.add(wallLeft);
+        // Pared Izquierda dividida (X = -5)
+        const wallLeftPart1 = new THREE.Mesh(new THREE.PlaneGeometry(4.9, ROOM_HEIGHT), wallMatFB);
+        wallLeftPart1.rotation.y = Math.PI / 2;
+        wallLeftPart1.position.set(-5, ROOM_HEIGHT / 2, -1.15);
+        wallLeftPart1.receiveShadow = true;
+        roomGroup.add(wallLeftPart1);
+
+        const wallLeftPart2 = new THREE.Mesh(new THREE.PlaneGeometry(1.3, ROOM_HEIGHT), wallMatFB);
+        wallLeftPart2.rotation.y = Math.PI / 2;
+        wallLeftPart2.position.set(-5, ROOM_HEIGHT / 2, 2.95);
+        wallLeftPart2.receiveShadow = true;
+        roomGroup.add(wallLeftPart2);
+
+        const wallLeftTop = new THREE.Mesh(new THREE.PlaneGeometry(1.0, ROOM_HEIGHT - 2.05), wallMatFB);
+        wallLeftTop.rotation.y = Math.PI / 2;
+        wallLeftTop.position.set(-5, 2.05 + (ROOM_HEIGHT - 2.05) / 2, 1.8);
+        wallLeftTop.receiveShadow = true;
+        roomGroup.add(wallLeftTop);
 
         // Pared Derecha (X = 5)
         const wallRight = new THREE.Mesh(new THREE.PlaneGeometry(7.2, ROOM_HEIGHT), wallMatFB);
@@ -439,34 +516,149 @@
         frameT.position.set(0, 2.05, 0);
         doorFrameGroup.add(frameL, frameR, frameT);
 
+        const doorHinge = new THREE.Group();
+        doorHinge.position.set(-0.55, 0, 0);
+        doorFrameGroup.add(doorHinge);
+
         const doorBase = new THREE.Mesh(
             new THREE.BoxGeometry(1.01, 2.01, 0.035),
             new THREE.MeshStandardMaterial({ color: 0xe0e0e0 })
         );
-        doorBase.position.set(0, 1.005, -0.01);
-        doorFrameGroup.add(doorBase);
+        doorBase.position.set(0.55, 1.005, -0.01);
+        doorHinge.add(doorBase);
 
         const panelMat = new THREE.MeshStandardMaterial({ color: 0xcccccc });
         const panelGeo = new THREE.BoxGeometry(0.34, 0.38, 0.01);
         const panels = [
-            { x: -0.21, y: 1.52 }, { x: 0.21, y: 1.52 },
-            { x: -0.21, y: 0.52 }, { x: 0.21, y: 0.52 }
+            { x: -0.21 + 0.55, y: 1.52 }, { x: 0.21 + 0.55, y: 1.52 },
+            { x: -0.21 + 0.55, y: 0.52 }, { x: 0.21 + 0.55, y: 0.52 }
         ];
         panels.forEach(p => {
             const pan = new THREE.Mesh(panelGeo, panelMat);
             pan.position.set(p.x, p.y, 0.012);
-            doorFrameGroup.add(pan);
+            doorHinge.add(pan);
         });
 
         const handleMat = new THREE.MeshStandardMaterial({ color: 0xc49d43, roughness: 0.2, metalness: 0.8 });
         const handleKnob = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 12), handleMat);
-        handleKnob.position.set(0.38, 0.95, 0.035);
+        handleKnob.position.set(0.38 + 0.55, 0.95, 0.035);
         const handleBase = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.03, 8), handleMat);
         handleBase.rotation.x = Math.PI / 2;
-        handleBase.position.set(0.38, 0.95, 0.015);
-        doorFrameGroup.add(handleKnob, handleBase);
+        handleBase.position.set(0.38 + 0.55, 0.95, 0.015);
+        doorHinge.add(handleKnob, handleBase);
 
         scene.add(doorFrameGroup);
+
+        // --- SALA DE ESTAR (LIVING ROOM) ---
+        const livingRoomGroup = new THREE.Group();
+        const lrWallMat = new THREE.MeshStandardMaterial({color: 0x080a11, roughness: 0.95}); 
+        
+        // Suelo oscuro espectacular
+        const lrFloorMat = new THREE.MeshStandardMaterial({
+            map: floorTextures.diffuse, 
+            bumpMap: floorTextures.bump,
+            bumpScale: 0.03,
+            roughness: 0.6, 
+            color: 0x3d3028
+        });
+
+        const lrFloor = new THREE.Mesh(new THREE.PlaneGeometry(8, 10), lrFloorMat);
+        lrFloor.rotation.x = -Math.PI / 2;
+        lrFloor.position.set(-9, 0, 1.0);
+        lrFloor.receiveShadow = true;
+        livingRoomGroup.add(lrFloor);
+
+        const lrCeil = new THREE.Mesh(new THREE.PlaneGeometry(8, 10), lrWallMat);
+        lrCeil.rotation.x = Math.PI / 2;
+        lrCeil.position.set(-9, ROOM_HEIGHT, 1.0);
+        livingRoomGroup.add(lrCeil);
+
+        // Paredes Sala
+        const lrBack = new THREE.Mesh(new THREE.PlaneGeometry(10, ROOM_HEIGHT), lrWallMat);
+        lrBack.rotation.y = Math.PI / 2;
+        lrBack.position.set(-13, ROOM_HEIGHT / 2, 1.0);
+        lrBack.receiveShadow = true; livingRoomGroup.add(lrBack);
+
+        const lrLeftD = new THREE.Mesh(new THREE.PlaneGeometry(5.3, ROOM_HEIGHT), lrWallMat); 
+        lrLeftD.rotation.y = -Math.PI / 2;
+        lrLeftD.position.set(-5.01, ROOM_HEIGHT / 2, -1.35); 
+        lrLeftD.receiveShadow = true; livingRoomGroup.add(lrLeftD);
+
+        const lrRightD = new THREE.Mesh(new THREE.PlaneGeometry(3.7, ROOM_HEIGHT), lrWallMat); 
+        lrRightD.rotation.y = -Math.PI / 2;
+        lrRightD.position.set(-5.01, ROOM_HEIGHT / 2, 4.15); 
+        lrRightD.receiveShadow = true; livingRoomGroup.add(lrRightD);
+
+        const lrTopD = new THREE.Mesh(new THREE.PlaneGeometry(1.0, ROOM_HEIGHT - 2.05), lrWallMat);
+        lrTopD.rotation.y = -Math.PI / 2;
+        lrTopD.position.set(-5.01, 2.05 + (ROOM_HEIGHT - 2.05) / 2, 1.8);
+        lrTopD.receiveShadow = true; livingRoomGroup.add(lrTopD);
+
+        const lrSide1 = new THREE.Mesh(new THREE.PlaneGeometry(8, ROOM_HEIGHT), lrWallMat);
+        lrSide1.position.set(-9, ROOM_HEIGHT / 2, -4);
+        lrSide1.receiveShadow = true; livingRoomGroup.add(lrSide1);
+
+        const lrSide2 = new THREE.Mesh(new THREE.PlaneGeometry(8, ROOM_HEIGHT), lrWallMat);
+        lrSide2.rotation.y = Math.PI;
+        lrSide2.position.set(-9, ROOM_HEIGHT / 2, 6);
+        lrSide2.receiveShadow = true; livingRoomGroup.add(lrSide2);
+
+        // Muebles: Sofá de Cuero
+        const couchDarkMat = new THREE.MeshStandardMaterial({color: 0x14100c, roughness: 0.5, metalness: 0.1});
+        const cBase = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.4, 1.1), couchDarkMat);
+        cBase.position.set(-10, 0.2, 1.8);
+        cBase.castShadow = true; cBase.receiveShadow = true;
+        livingRoomGroup.add(cBase);
+
+        const cBack = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.7, 0.35), couchDarkMat);
+        cBack.position.set(-10, 0.55, 1.25);
+        cBack.castShadow = true; cBack.receiveShadow = true;
+        livingRoomGroup.add(cBack);
+
+        const armL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.6, 1.1), couchDarkMat);
+        armL.position.set(-11.25, 0.5, 1.8); 
+        armL.castShadow = true; armL.receiveShadow = true; livingRoomGroup.add(armL);
+
+        const armR = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.6, 1.1), couchDarkMat);
+        armR.position.set(-8.75, 0.5, 1.8); 
+        armR.castShadow = true; armR.receiveShadow = true; livingRoomGroup.add(armR);
+
+        // Muebles: Mesa de Centro de Vidrio y Metal
+        const tTop = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.04, 1.1), new THREE.MeshStandardMaterial({color: 0x010101, roughness: 0.1, metalness: 0.9, transparent: true, opacity: 0.75}));
+        tTop.position.set(-10, 0.4, 3.2); 
+        tTop.castShadow = true; tTop.receiveShadow = true; livingRoomGroup.add(tTop);
+        
+        const legGeo = new THREE.BoxGeometry(0.04, 0.4, 0.04);
+        const legMat = new THREE.MeshStandardMaterial({color: 0x111111, metalness: 0.9, roughness: 0.2});
+        [-0.75, 0.75].forEach(rx => {
+            [-0.5, 0.5].forEach(rz => {
+                const leg = new THREE.Mesh(legGeo, legMat);
+                leg.position.set(-10 + rx, 0.2, 3.2 + rz);
+                leg.castShadow = true; livingRoomGroup.add(leg);
+            });
+        });
+
+        // Objetos Dinámicos de Físicas
+        const propsPhysics = [];
+        for(let i=0; i<16; i++){
+            const isBox = Math.random() > 0.5;
+            const geo = isBox ? new THREE.BoxGeometry(0.2, 0.2, 0.2) : new THREE.CylinderGeometry(0.08, 0.08, 0.3, 12);
+            const mat = new THREE.MeshStandardMaterial({
+                color: new THREE.Color().setHSL(Math.random(), 0.5, 0.2), 
+                roughness: 0.3, metalness: 0.4
+            });
+            const prop = new THREE.Mesh(geo, mat);
+            prop.position.set(-10 + (Math.random()-0.5)*3, 0.5 + Math.random()*2, 3.2 + (Math.random()-0.5)*2);
+            prop.castShadow = true; prop.receiveShadow = true;
+            prop.userData = { velocity: new THREE.Vector3(0, 0, 0) };
+            livingRoomGroup.add(prop);
+            propsPhysics.push(prop);
+        }
+
+        // --- ILUMINACIÓN ESPECÍFICA DE LA SALA ---
+        // (Luces base antiguas removidas)
+
+        scene.add(livingRoomGroup);
 
         // Botiquín de Primeros Auxilios
         const firstAid = new THREE.Group();
@@ -782,11 +974,126 @@
 
         scene.add(tvGroup);
 
+        // Ceiling Lamp en la Sala
+        const lampGroup = new THREE.Group();
+        lampGroup.position.set(-10, ROOM_HEIGHT, 1.0); // Colgado del centro de la sala
+        
+        // Base de la lámpara en el techo
+        const lampBase = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.2, 0.2, 0.05, 16),
+            new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 })
+        );
+        lampBase.position.y = -0.025;
+        lampGroup.add(lampBase);
+        
+        // Cable colagndo
+        const lampPole = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.015, 0.015, 1.2, 8),
+            new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 })
+        );
+        lampPole.position.y = -0.6;
+        lampGroup.add(lampPole);
+        
+        // Pantalla de la lámpara
+        const lampShade = new THREE.Mesh(
+            new THREE.ConeGeometry(0.6, 0.4, 16, 1, true),
+            new THREE.MeshStandardMaterial({ color: 0xffeedd, side: THREE.DoubleSide, transparent: true, opacity: 0.9 })
+        );
+        lampShade.position.y = -1.2;
+        lampGroup.add(lampShade);
+
+        // Bombilla brillante (Foco Emisor)
+        const lampBulb = new THREE.Mesh(
+            new THREE.SphereGeometry(0.1, 16, 16),
+            new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffcc88, emissiveIntensity: 10.0 })
+        );
+        lampBulb.position.y = -1.3;
+        lampGroup.add(lampBulb);
+        
+        // Luz principal (rebote ambiente de alta intensidad)
+        const lampLight = new THREE.PointLight(0xffb866, 1.5, 4.8, 1.5);
+        lampLight.position.set(0, -1.3, 0);
+        lampGroup.add(lampLight);
+
+        // Luz concentrada volumétrica hacia al suelo
+        const lampSpotLight = new THREE.SpotLight(0xffddaa, 10.0, 6.0, Math.PI / 4, 0.4, 2.0);
+        lampSpotLight.position.set(0, -1.3, 0);
+        lampSpotLight.target.position.set(0, -10, 0); // Apunta directamente abajo
+        lampSpotLight.castShadow = true;
+        lampSpotLight.shadow.bias = -0.0006;
+        lampSpotLight.shadow.mapSize.width = 2048;
+        lampSpotLight.shadow.mapSize.height = 2048;
+        lampGroup.add(lampSpotLight);
+        lampGroup.add(lampSpotLight.target);
+        
+        scene.add(lampGroup);
+
+        // Pantalla de TV plana enfrente del sillón (Pared en z=6)
+        const fsGroup = new THREE.Group();
+        fsGroup.position.set(-10, 1.5, 5.95);
+        
+        // Marco de la TV
+        const fsFrame = new THREE.Mesh(
+            new THREE.BoxGeometry(2.4, 1.3, 0.05),
+            new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.8 })
+        );
+        fsGroup.add(fsFrame);
+
+        const staticCanvas = document.createElement('canvas');
+        staticCanvas.width = 128;
+        staticCanvas.height = 128;
+        const staticCtx = staticCanvas.getContext('2d');
+        const staticTex = new THREE.CanvasTexture(staticCanvas);
+        staticTex.magFilter = THREE.NearestFilter;
+        staticTex.minFilter = THREE.NearestFilter;
+        
+        const noiseFrames = [];
+        for(let f=0; f<3; f++) {
+            const imgData = staticCtx.createImageData(128, 128);
+            for (let i = 0; i < imgData.data.length; i += 4) {
+                const val = Math.random() * 255;
+                imgData.data[i] = val;
+                imgData.data[i+1] = val;
+                imgData.data[i+2] = val;
+                imgData.data[i+3] = 255;
+            }
+            noiseFrames.push(imgData);
+        }
+
+        // Pantalla LED simulando estar encendida con poca iluminación
+        const fsScreen = new THREE.Mesh(
+            new THREE.PlaneGeometry(2.35, 1.25),
+            new THREE.MeshStandardMaterial({
+                color: 0x222222,
+                emissive: 0xffffff,
+                emissiveMap: staticTex,
+                emissiveIntensity: 0.25,
+                roughness: 0.2
+            })
+        );
+        fsScreen.position.set(0, 0, -0.026); // Hacia -Z, para que se vea desde el sillón
+        fsScreen.rotation.y = Math.PI; 
+        fsGroup.add(fsScreen);
+
+        // Luz tenue emitida por la pantalla hacia la sala
+        const fsLight = new THREE.PointLight(0xaabbcc, 1.0, 5, 2.0);
+        fsLight.position.set(0, 0, -0.5);
+        fsGroup.add(fsLight);
+
+        scene.add(fsGroup);
+
         // Animación de la pantalla del TV
         let lastColorChange = 0;
+        let lastStaticChange = 0;
         const cartoonColors = ['#0000ff', '#ff0000', '#ffff00', '#00ff00', '#ffffff'];
         
         function updateTV(time) {
+            if (typeof staticCtx !== 'undefined' && time - lastStaticChange > 0.05) {
+                lastStaticChange = time;
+                staticCtx.putImageData(noiseFrames[Math.floor(Math.random() * noiseFrames.length)], 0, 0);
+                staticTex.needsUpdate = true;
+            }
+
             if (time - lastColorChange > 0.5) {
                 lastColorChange = time;
                 const c = cartoonColors[Math.floor(Math.random() * cartoonColors.length)];
@@ -803,7 +1110,13 @@
                 tvLight.color.set(c);
             }
             // Parpadeo irregular
-            tvLight.intensity = 2.0 + Math.random() * 0.5;
+            const baseIntensity = 2.0 + Math.random() * 0.5;
+            tvLight.intensity = baseIntensity;
+
+            // Parpadeo muy leve para la pantalla de la sala
+            if (typeof fsLight !== 'undefined') {
+                fsLight.intensity = 1.0 + Math.random() * 0.2;
+            }
         }
 
         // Asegurar que absolutamente todos los objetos arrojen y reciban sombras
@@ -841,10 +1154,69 @@
             }
         }
 
+        const raycaster = new THREE.Raycaster();
+        let doorIsOpen = false;
+        let doorTargetAngle = 0;
+        let doorCurrentAngle = 0;
+        const doorPromptEl = document.getElementById('door-prompt');
+        let doorPromptVisible = false;
+
+        const handleDoorToggle = (e) => {
+            if (e) {
+                e.stopPropagation();
+                if (e.type === 'touchstart') e.preventDefault();
+            }
+            doorIsOpen = !doorIsOpen;
+            doorTargetAngle = doorIsOpen ? Math.PI / 1.7 : 0;
+            if (typeof doorPromptEl !== 'undefined') {
+                doorPromptEl.innerHTML = doorIsOpen ? '<span>✋</span> Cerrar' : '<span>✋</span> Abrir';
+            }
+        };
+
+        doorPromptEl.addEventListener('mousedown', (e) => {
+            if (isPointerLocked) return; // En PC, el mousedown de window lo maneja
+            handleDoorToggle(e);
+        });
+        
+        doorPromptEl.addEventListener('touchstart', handleDoorToggle, { passive: false });
+
+        window.addEventListener('mousedown', (e) => {
+            if (e.target === doorPromptEl || doorPromptEl.contains(e.target)) return;
+            if (!isPointerLocked) return; // En PC debe estar bloqueado. En móvil usan el botón.
+            
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+            if (typeof doorHinge !== 'undefined') {
+                const intersects = raycaster.intersectObject(doorHinge, true);
+                if (intersects.length > 0 && intersects[0].distance < 3.0) {
+                    handleDoorToggle(null);
+                }
+            }
+        });
+
         window.addEventListener('keydown', (e) => {
             const k = e.key.toLowerCase();
             if (k in keys) keys[k] = true;
+            if (k === 'f' && typeof flashlight !== 'undefined') {
+                flashlight.visible = !flashlight.visible;
+            }
         });
+
+        const flashBtn = document.getElementById('flashlight-btn');
+        if(flashBtn) {
+            flashBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (typeof flashlight !== 'undefined') {
+                    flashlight.visible = !flashlight.visible;
+                }
+            });
+            flashBtn.addEventListener('touchstart', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                if (typeof flashlight !== 'undefined') {
+                    flashlight.visible = !flashlight.visible;
+                }
+            }, { passive: false });
+        }
 
         window.addEventListener('keyup', (e) => {
             const k = e.key.toLowerCase();
@@ -1012,9 +1384,67 @@
 
             if (typeof updateTV !== 'undefined') updateTV(clock.elapsedTime);
 
-            // Colisiones físicas del jugador con límites
-            camera.position.x = Math.max(BOUNDS.minX, Math.min(BOUNDS.maxX, camera.position.x));
-            camera.position.z = Math.max(BOUNDS.minZ, Math.min(BOUNDS.maxZ, camera.position.z));
+            if (typeof doorCurrentAngle !== 'undefined') {
+                doorCurrentAngle += (doorTargetAngle - doorCurrentAngle) * 6 * delta;
+                doorHinge.rotation.y = doorCurrentAngle;
+            }
+
+            if (typeof doorHinge !== 'undefined' && typeof doorPromptEl !== 'undefined') {
+                raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+                const intersects = raycaster.intersectObject(doorHinge, true);
+                if (intersects.length > 0 && intersects[0].distance < 3.0) {
+                    if (!doorPromptVisible) {
+                        doorPromptEl.style.display = 'flex';
+                        doorPromptVisible = true;
+                    }
+                    doorPromptEl.innerHTML = doorIsOpen ? '<span>✋</span> Cerrar' : '<span>✋</span> Abrir';
+                } else {
+                    if (doorPromptVisible) {
+                        doorPromptEl.style.display = 'none';
+                        doorPromptVisible = false;
+                    }
+                }
+            }
+
+            if (typeof propsPhysics !== 'undefined') {
+                for (let p of propsPhysics) {
+                    p.userData.velocity.y += -15.8 * delta; // Gravedad rápida
+                    p.position.addScaledVector(p.userData.velocity, delta);
+                    
+                    if (p.position.y <= 0.15) {
+                        p.position.y = 0.15;
+                        p.userData.velocity.y *= -0.3; // Rebote
+                        p.userData.velocity.x *= 0.85; // Fricción
+                        p.userData.velocity.z *= 0.85;
+                    }
+                    
+                    // Colisión con el jugador (Empujón)
+                    let dist = p.position.distanceTo(camera.position);
+                    if (dist < 1.1 && p.position.y < 1.0) {
+                        let push = p.position.clone().sub(camera.position).normalize();
+                        push.y = 0.3;
+                        p.userData.velocity.add(push.multiplyScalar(8.0 * delta));
+                    }
+                }
+            }
+
+            let px = camera.position.x;
+            let pz = camera.position.z;
+            let inDoorZ = (pz > 1.3 && pz < 2.3);
+
+            if (px > -4.5) {
+                camera.position.x = Math.max(-4.5, Math.min(4.5, px));
+                camera.position.z = Math.max(-3.2, Math.min(3.2, pz));
+            } else if (px < -5.0) {
+                camera.position.x = Math.max(-12.0, Math.min(-5.0, px));
+                camera.position.z = Math.max(-3.5, Math.min(5.5, pz));
+            } else {
+                if (doorIsOpen && inDoorZ) {
+                    camera.position.z = Math.max(1.35, Math.min(2.25, pz));
+                } else {
+                    camera.position.x = (px > -4.75) ? -4.5 : -5.0;
+                }
+            }
             camera.position.y = 1.45; // Altura fija de ojos
 
             // Orientación de la cámara
